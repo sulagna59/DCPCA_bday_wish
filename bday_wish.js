@@ -95,8 +95,9 @@ async function resolvePhoto(photo) {
             const url      = toDirectUrl(photo);
             const response = await fetch(url);
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            const mime = response.headers.get('content-type') || 'image/jpeg';
-            if (!mime.startsWith('image/')) throw new Error(`Unexpected content-type: ${mime}`);
+            const rawMime = response.headers.get('content-type') || '';
+            // Drive returns application/octet-stream — treat as image/jpeg
+            const mime = rawMime.startsWith('image/') ? rawMime : 'image/jpeg';
             const buffer = Buffer.from(await response.arrayBuffer());
             return { buffer, mime };
         } catch (e) {
