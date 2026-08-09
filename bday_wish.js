@@ -23,8 +23,8 @@ const SHEET_URL  = 'https://docs.google.com/spreadsheets/d/1Y4Xb9kHeK9yLF_l74rmx
 const AUTH_PATH  = path.join(__dirname, '.baileys_auth');
 
 // ── Message template ──────────────────────────────────────────────────────────
-const message = (firstName, memberId) =>
-`🎂 *Happy Birthday, ${firstName}!* 🎉
+const message = (name, memberId) =>
+`🎂 *Happy Birthday, ${name}!* 🎉
 _Member ID: ${memberId}_
 
 Wishing you a day filled with joy, laughter, and wonderful moments!
@@ -132,9 +132,8 @@ async function run() {
             console.log('WhatsApp connected.');
 
             for (const row of birthdays) {
-                const name      = String(row['Name'] || '').trim();
-                const firstName = name.split(' ')[0];
-                const memberId  = String(row['Membership ID'] || '').trim();
+                const name     = String(row['Name'] || '').trim();
+                const memberId = String(row['Membership ID'] || '').trim();
                 const consent   = String(row['Photo Consent'] || '').trim().toLowerCase() === 'yes';
                 const photo     = String(row['Photo'] || '').trim();
 
@@ -145,10 +144,10 @@ async function run() {
                         await sock.sendMessage(GROUP_ID, {
                             image:    photoData.buffer,
                             mimetype: photoData.mime,
-                            caption:  message(firstName, memberId),
+                            caption:  message(name, memberId),
                         });
                     } else {
-                        await sock.sendMessage(GROUP_ID, { text: message(firstName, memberId) });
+                        await sock.sendMessage(GROUP_ID, { text: message(name, memberId) });
                     }
                     console.log(`✅ Sent for ${name} | photo: ${!!photoData}`);
                 } catch (e) {
