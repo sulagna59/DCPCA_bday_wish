@@ -1,0 +1,41 @@
+name: DCPCA Birthday Wish
+
+on:
+  schedule:
+    - cron: '30 3 * * *'   # 9:00 AM IST (UTC+5:30)
+  workflow_dispatch:        # allow manual run from GitHub UI
+
+jobs:
+  send-wishes:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Restore Baileys creds
+        run: |
+          mkdir -p .baileys_auth
+          echo '${{ secrets.BAILEYS_CREDS }}' > .baileys_auth/creds.json
+
+      - name: Send birthday wishes
+        env:
+          BDAY_EXCEL_PATH: ${{ github.workspace }}/bday.xlsx
+        run: node bday_wish.js
+
+      - name: Save updated Baileys creds
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          CREDS=$(cat .baileys_auth/creds.json)
+          gh secret set BAILEYS_CREDS --body "$CREDS" --repo ${{ github.repository }}
