@@ -76,7 +76,7 @@ function mimeFromExt(filePath) {
 function toDirectUrl(url) {
     // Convert Google Drive share link to direct download URL
     const m = url.match(/\/file\/d\/([^\/\?]+)/);
-    if (m) return `https://drive.google.com/uc?export=download&id=${m[1]}`;
+    if (m) return `https://drive.usercontent.google.com/download?id=${m[1]}&export=download&authuser=0`;
     return url;
 }
 
