@@ -18,13 +18,14 @@ const path = require('path');
 const fs   = require('fs');
 
 // ── Config ────────────────────────────────────────────────────────────────────
-const GROUP_ID  = '120363427760976937@g.us';
-const EXCEL     = process.env.BDAY_EXCEL_PATH || path.join(__dirname, '..', 'bday.xlsx');
-const AUTH_PATH = path.join(__dirname, '.baileys_auth');
+const GROUP_ID   = '120363427760976937@g.us';
+const SHEET_URL  = 'https://docs.google.com/spreadsheets/d/1Y4Xb9kHeK9yLF_l74rmxbQ5hXC5JkRTE/export?format=csv';
+const AUTH_PATH  = path.join(__dirname, '.baileys_auth');
 
 // ── Message template ──────────────────────────────────────────────────────────
-const message = firstName =>
+const message = (firstName, memberId) =>
 `🎂 *Happy Birthday, ${firstName}!* 🎉
+_Member ID: ${memberId}_
 
 Wishing you a day filled with joy, laughter, and wonderful moments!
 
@@ -41,8 +42,11 @@ function toIST(date) {
 const MONTHS = { jan:0, feb:1, mar:2, apr:3, may:4, jun:5,
                   jul:6, aug:7, sep:8, oct:9, nov:10, dec:11 };
 
-function todaysBirthdays() {
-    const wb   = XLSX.readFile(EXCEL);
+async function todaysBirthdays() {
+    const response = await fetch(SHEET_URL);
+    if (!response.ok) throw new Error(`Failed to fetch sheet: ${response.status}`);
+    const csv  = await response.text();
+    const wb   = XLSX.read(csv, { type: 'string' });
     const ws   = wb.Sheets[wb.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(ws, { raw: false });
 
@@ -69,6 +73,13 @@ function mimeFromExt(filePath) {
              '.gif': 'image/gif',  '.webp': 'image/webp' }[ext] || 'image/jpeg';
 }
 
+function toDirectUrl(url) {
+    // Convert Google Drive share link to direct download URL
+    const m = url.match(/\/file\/d\/([^\/\?]+)/);
+    if (m) return `https://drive.google.com/uc?export=download&id=${m[1]}`;
+    return url;
+}
+
 async function resolvePhoto(photo) {
     // Returns { buffer, mime } or null
     if (!photo || ['nan', ''].includes(photo.toLowerCase())) return null;
@@ -79,8 +90,9 @@ async function resolvePhoto(photo) {
     }
 
     if (isValidUrl(photo)) {
-        // Remote URL
-        const response = await fetch(photo);
+        // Remote URL — auto-convert Google Drive share links
+        const url      = toDirectUrl(photo);
+        const response = await fetch(url);
         if (!response.ok) throw new Error(`HTTP ${response.status} fetching photo`);
         const buffer = Buffer.from(await response.arrayBuffer());
         const mime   = response.headers.get('content-type') || 'image/jpeg';
@@ -97,7 +109,7 @@ async function run() {
         process.exit(1);
     }
 
-    const birthdays = todaysBirthdays();
+    const birthdays = await todaysBirthdays();
     console.log(`${new Date().toISOString()} — ${birthdays.length} birthday(s) today.`);
 
     if (birthdays.length === 0) {
@@ -122,6 +134,7 @@ async function run() {
             for (const row of birthdays) {
                 const name      = String(row['Name'] || '').trim();
                 const firstName = name.split(' ')[0];
+                const memberId  = String(row['Membership ID'] || '').trim();
                 const consent   = String(row['Photo Consent'] || '').trim().toLowerCase() === 'yes';
                 const photo     = String(row['Photo'] || '').trim();
 
@@ -132,10 +145,10 @@ async function run() {
                         await sock.sendMessage(GROUP_ID, {
                             image:    photoData.buffer,
                             mimetype: photoData.mime,
-                            caption:  message(firstName),
+                            caption:  message(firstName, memberId),
                         });
                     } else {
-                        await sock.sendMessage(GROUP_ID, { text: message(firstName) });
+                        await sock.sendMessage(GROUP_ID, { text: message(firstName, memberId) });
                     }
                     console.log(`✅ Sent for ${name} | photo: ${!!photoData}`);
                 } catch (e) {
