@@ -91,12 +91,18 @@ async function resolvePhoto(photo) {
 
     if (isValidUrl(photo)) {
         // Remote URL — auto-convert Google Drive share links
-        const url      = toDirectUrl(photo);
-        const response = await fetch(url);
-        if (!response.ok) throw new Error(`HTTP ${response.status} fetching photo`);
-        const buffer = Buffer.from(await response.arrayBuffer());
-        const mime   = response.headers.get('content-type') || 'image/jpeg';
-        return { buffer, mime };
+        try {
+            const url      = toDirectUrl(photo);
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const mime = response.headers.get('content-type') || 'image/jpeg';
+            if (!mime.startsWith('image/')) throw new Error(`Unexpected content-type: ${mime}`);
+            const buffer = Buffer.from(await response.arrayBuffer());
+            return { buffer, mime };
+        } catch (e) {
+            console.warn(`⚠️ Photo fetch failed (${e.message}), sending text only.`);
+            return null;
+        }
     }
 
     return null;
