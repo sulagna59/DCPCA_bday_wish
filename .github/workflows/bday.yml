@@ -2,7 +2,7 @@ name: DCPCA Birthday Wish
 
 on:
   schedule:
-    - cron: '30 3 * * *'   # 9:00 AM IST (UTC+5:30)
+    - cron: '30 2 * * *'   # 8:00 AM IST (UTC+5:30)
   workflow_dispatch:        # allow manual run from GitHub UI
 
 jobs:
@@ -37,3 +37,14 @@ jobs:
         run: |
           CREDS=$(cat .baileys_auth/creds.json)
           gh secret set BAILEYS_CREDS --body "$CREDS" --repo ${{ github.repository }}
+
+      - name: Commit updated template state
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add bday_state.json
+          git diff --cached --quiet || git commit -m "chore: update template state [skip ci]"
+          git push https://x-access-token:${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git HEAD:main

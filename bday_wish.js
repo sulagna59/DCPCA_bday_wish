@@ -22,15 +22,69 @@ const GROUP_ID   = '120363427760976937@g.us';
 const SHEET_URL  = 'https://docs.google.com/spreadsheets/d/1Y4Xb9kHeK9yLF_l74rmxbQ5hXC5JkRTE/export?format=csv';
 const AUTH_PATH  = path.join(__dirname, '.baileys_auth');
 
-// ── Message template ──────────────────────────────────────────────────────────
-const message = (name, memberId) =>
+// ── Message templates (5, used rotationally) ──────────────────────────────────
+const TEMPLATES = [
+    (name, memberId) =>
 `🎂 *Happy Birthday, ${name}!* 🎉
 _Member ID: ${memberId}_
 
 Wishing you a day filled with joy, laughter, and wonderful moments!
 
 With warm wishes,
-*DCPCA* ✨`;
+*DCPCA* ✨`,
+
+    (name, memberId) =>
+`🎉 *Many Happy Returns of the Day, ${name}!* 🎂
+_Member ID: ${memberId}_
+
+May this special day bring you endless happiness and all the love you deserve. Here's to another wonderful year ahead!
+
+With warm regards,
+*DCPCA* 🌟`,
+
+    (name, memberId) =>
+`🌟 *Wishing you a very Happy Birthday, ${name}!* 🎈
+_Member ID: ${memberId}_
+
+May each passing year bring you new joys, new hopes, and new beginnings. You make our DCPCA family shine brighter!
+
+With love & best wishes,
+*DCPCA* 🎊`,
+
+    (name, memberId) =>
+`🎊 *Happy Birthday, ${name}!* 🥳
+_Member ID: ${memberId}_
+
+Today is all about you — may it be as amazing as you are! Wishing you great health, happiness, and success in the year ahead.
+
+Warmly,
+*DCPCA* 🎂`,
+
+    (name, memberId) =>
+`🥳 *Heartiest Birthday Wishes, ${name}!* 🌸
+_Member ID: ${memberId}_
+
+On your special day, we celebrate the joy you bring to our community. May this year be your best one yet!
+
+With affection,
+*DCPCA* 🎉`,
+];
+
+const STATE_PATH = path.join(__dirname, 'bday_state.json');
+
+function loadState() {
+    try { return JSON.parse(fs.readFileSync(STATE_PATH, 'utf8')); }
+    catch { return { lastTemplateIndex: -1 }; }
+}
+
+function saveState(state) {
+    fs.writeFileSync(STATE_PATH, JSON.stringify(state, null, 2) + '\n');
+}
+
+function getMessage(name, memberId, baseIndex, personOffset) {
+    const idx = (baseIndex + personOffset) % TEMPLATES.length;
+    return TEMPLATES[idx](name, memberId);
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function toIST(date) {
@@ -138,11 +192,16 @@ async function run() {
         if (connection === 'open') {
             console.log('WhatsApp connected.');
 
+            const state = loadState();
+            const baseIndex = state.lastTemplateIndex + 1;  // next after last used
+            let personOffset = 0;
+
             for (const row of birthdays) {
                 const name     = String(row['Name'] || '').trim();
                 const memberId = String(row['Membership ID'] || '').trim();
                 const consent   = String(row['Photo Consent'] || '').trim().toLowerCase() === 'yes';
                 const photo     = String(row['Photo'] || '').trim();
+                const text      = getMessage(name, memberId, baseIndex, personOffset++);
 
                 try {
                     const photoData = consent ? await resolvePhoto(photo) : null;
@@ -151,16 +210,19 @@ async function run() {
                         await sock.sendMessage(GROUP_ID, {
                             image:    photoData.buffer,
                             mimetype: photoData.mime,
-                            caption:  message(name, memberId),
+                            caption:  text,
                         });
                     } else {
-                        await sock.sendMessage(GROUP_ID, { text: message(name, memberId) });
+                        await sock.sendMessage(GROUP_ID, { text });
                     }
                     console.log(`✅ Sent for ${name} | photo: ${!!photoData}`);
                 } catch (e) {
                     console.error(`❌ Failed for ${name}: ${e.message}`);
                 }
             }
+
+            // Save last template index used (last person's index)
+            saveState({ lastTemplateIndex: (baseIndex + personOffset - 1) % TEMPLATES.length });
 
             // Wait 3s to ensure messages are delivered before closing
             await new Promise(r => setTimeout(r, 3000));
