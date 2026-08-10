@@ -201,7 +201,13 @@ async function run() {
                 const memberId = String(row['Membership ID'] || '').trim();
                 const consent   = String(row['Photo Consent'] || '').trim().toLowerCase() === 'yes';
                 const photo     = String(row['Photo'] || '').trim();
-                const text      = getMessage(name, memberId, baseIndex, personOffset++);
+                const text      = getMessage(name, memberId, baseIndex, personOffset);
+
+                if (personOffset > 0) {
+                    console.log(`⏳ Waiting 5 minutes before next wish...`);
+                    await new Promise(r => setTimeout(r, 5 * 60 * 1000));
+                }
+                personOffset++;
 
                 try {
                     const photoData = consent ? await resolvePhoto(photo) : null;
