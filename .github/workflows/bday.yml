@@ -30,6 +30,7 @@ jobs:
       - name: Send birthday wishes
         env:
           SHEET_URL: ${{ secrets.SHEET_URL }}
+          GROUP_ID: ${{ secrets.GROUP_ID }}
         run: node bday_wish.js
 
       - name: Save updated Baileys creds

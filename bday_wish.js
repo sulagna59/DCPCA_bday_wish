@@ -18,7 +18,7 @@ const path = require('path');
 const fs   = require('fs');
 
 // ── Config ────────────────────────────────────────────────────────────────────
-const GROUP_ID   = '120363427760976937@g.us';
+const GROUP_ID   = process.env.GROUP_ID;
 const SHEET_URL  = process.env.SHEET_URL;
 const AUTH_PATH  = path.join(__dirname, '.baileys_auth');
 
