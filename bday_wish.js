@@ -198,10 +198,21 @@ async function resolvePhoto(photo) {
     return null;
 }
 
+// ── Summary ───────────────────────────────────────────────────────────────────
+const SUMMARY_PATH = process.env.GITHUB_STEP_SUMMARY || null;
+
+function writeSummary(lines) {
+    if (!SUMMARY_PATH) return;
+    const istDate = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+    const header  = `## 🎂 DCPCA Birthday Wish Bot\n**Run time (IST):** ${istDate}\n\n`;
+    fs.appendFileSync(SUMMARY_PATH, header + lines.join('\n') + '\n');
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 async function run() {
     if (!GROUP_ID) {
         console.error('❌ GROUP_ID is not set. Run setup.js first.');
+        writeSummary(['### ❌ Configuration Error', 'GROUP_ID secret is not set.']);
         process.exit(1);
     }
 
@@ -210,6 +221,7 @@ async function run() {
 
     if (birthdays.length === 0) {
         console.log('No birthdays today. Done.');
+        writeSummary(['### 📭 No Birthdays Today', 'No wishes were sent.']);
         process.exit(0);
     }
 
@@ -230,6 +242,8 @@ async function run() {
             const state = loadState();
             const baseIndex = state.lastTemplateIndex + 1;  // next after last used
             let personOffset = 0;
+            const sent   = [];
+            const errors = [];
 
             for (const row of birthdays) {
                 const name     = String(row['Name'] || '').trim();
@@ -257,24 +271,47 @@ async function run() {
                         await sock.sendMessage(GROUP_ID, { text });
                     }
                     console.log(`✅ Sent for ${name} | photo: ${!!photoData}`);
+                    sent.push({ name, memberId, photo: !!photoData });
                 } catch (e) {
                     console.error(`❌ Failed for ${name}: ${e.message}`);
+                    errors.push({ name, memberId, error: e.message });
                 }
             }
 
             // Save last template index used (last person's index)
             saveState({ lastTemplateIndex: (baseIndex + personOffset - 1) % TEMPLATES.length });
 
+            // Write GitHub Actions summary
+            const summaryLines = [];
+            if (sent.length > 0) {
+                summaryLines.push(`### ✅ Wishes Sent (${sent.length})`);
+                summaryLines.push('| Name | Membership ID | Photo |');
+                summaryLines.push('|---|---|---|');
+                sent.forEach(r => summaryLines.push(`| ${r.name} | ${r.memberId} | ${r.photo ? '✅' : '❌'} |`));
+            }
+            if (errors.length > 0) {
+                summaryLines.push(`\n### ❌ Errors (${errors.length})`);
+                summaryLines.push('| Name | Membership ID | Error |');
+                summaryLines.push('|---|---|---|');
+                errors.forEach(r => summaryLines.push(`| ${r.name} | ${r.memberId} | ${r.error} |`));
+            }
+            writeSummary(summaryLines);
+
             // Wait 3s to ensure messages are delivered before closing
             await new Promise(r => setTimeout(r, 3000));
-            process.exit(0);
+            process.exit(errors.length > 0 ? 1 : 0);
         }
 
         if (connection === 'close') {
             console.error('❌ Connection closed unexpectedly.');
+            writeSummary(['### ❌ WhatsApp Connection Failed', 'Connection closed before any wishes could be sent.']);
             process.exit(1);
         }
     });
 }
 
-run().catch(e => { console.error(e); process.exit(1); });
+run().catch(e => {
+    console.error(e);
+    writeSummary(['### ❌ Unexpected Error', `\`\`\`\n${e.message}\n\`\`\``]);
+    process.exit(1);
+});
