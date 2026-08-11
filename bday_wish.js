@@ -96,12 +96,23 @@ function toIST(date) {
 const MONTHS = { jan:0, feb:1, mar:2, apr:3, may:4, jun:5,
                   jul:6, aug:7, sep:8, oct:9, nov:10, dec:11 };
 
+// ── Google auth (shared, initialised once) ────────────────────────────────────
+let _googleAuth = null;
+function getGoogleAuth() {
+    if (!_googleAuth) {
+        _googleAuth = new google.auth.GoogleAuth({
+            credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON),
+            scopes: [
+                'https://www.googleapis.com/auth/spreadsheets.readonly',
+                'https://www.googleapis.com/auth/drive.readonly',
+            ],
+        });
+    }
+    return _googleAuth;
+}
+
 async function todaysBirthdays() {
-    const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
-    const auth = new google.auth.GoogleAuth({
-        credentials,
-        scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
-    });
+    const auth   = getGoogleAuth();
     const sheets = google.sheets({ version: 'v4', auth });
     const res = await sheets.spreadsheets.values.get({
         spreadsheetId: SPREADSHEET_ID,
@@ -136,11 +147,9 @@ function mimeFromExt(filePath) {
              '.gif': 'image/gif',  '.webp': 'image/webp' }[ext] || 'image/jpeg';
 }
 
-function toDirectUrl(url) {
-    // Convert Google Drive share link to direct download URL
+function driveFileId(url) {
     const m = url.match(/\/file\/d\/([^\/\?]+)/);
-    if (m) return `https://drive.usercontent.google.com/download?id=${m[1]}&export=download&authuser=0`;
-    return url;
+    return m ? m[1] : null;
 }
 
 async function resolvePhoto(photo) {
@@ -153,15 +162,31 @@ async function resolvePhoto(photo) {
     }
 
     if (isValidUrl(photo)) {
-        // Remote URL — auto-convert Google Drive share links
+        const fileId = driveFileId(photo);
+        if (fileId) {
+            // Restricted Google Drive file — download via Drive API
+            try {
+                const drive = google.drive({ version: 'v3', auth: getGoogleAuth() });
+                const meta  = await drive.files.get({ fileId, fields: 'mimeType' });
+                const mime  = meta.data.mimeType || 'image/jpeg';
+                const res   = await drive.files.get(
+                    { fileId, alt: 'media' },
+                    { responseType: 'arraybuffer' }
+                );
+                return { buffer: Buffer.from(res.data), mime };
+            } catch (e) {
+                console.warn(`⚠️ Drive photo fetch failed (${e.message}), sending text only.`);
+                return null;
+            }
+        }
+
+        // Non-Drive URL — fetch directly
         try {
-            const url      = toDirectUrl(photo);
-            const response = await fetch(url);
+            const response = await fetch(photo);
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             const rawMime = response.headers.get('content-type') || '';
-            // Drive returns application/octet-stream — treat as image/jpeg
-            const mime = rawMime.startsWith('image/') ? rawMime : 'image/jpeg';
-            const buffer = Buffer.from(await response.arrayBuffer());
+            const mime    = rawMime.startsWith('image/') ? rawMime : 'image/jpeg';
+            const buffer  = Buffer.from(await response.arrayBuffer());
             return { buffer, mime };
         } catch (e) {
             console.warn(`⚠️ Photo fetch failed (${e.message}), sending text only.`);
