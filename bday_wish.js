@@ -126,6 +126,7 @@ async function todaysBirthdays() {
 
     const today = toIST(new Date());
     return rows.filter(row => {
+        if (String(row['Membership Status'] || '').trim().toLowerCase() === 'inactive') return false;
         const dobStr = String(row['DOB'] || '').trim();
         if (!dobStr || dobStr.toLowerCase() === 'nan') return false;
         // Parse "D-Mon" or "DD-Mon" (e.g. "9-Aug", "10-Aug") — no timezone involved
