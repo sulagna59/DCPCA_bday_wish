@@ -19,7 +19,7 @@ const fs   = require('fs');
 
 // ── Config ────────────────────────────────────────────────────────────────────
 const GROUP_ID   = '120363427760976937@g.us';
-const SHEET_URL  = 'https://docs.google.com/spreadsheets/d/1Y4Xb9kHeK9yLF_l74rmxbQ5hXC5JkRTE/export?format=csv';
+const SHEET_URL  = process.env.SHEET_URL;
 const AUTH_PATH  = path.join(__dirname, '.baileys_auth');
 
 // ── Message templates (5, used rotationally) ──────────────────────────────────
