@@ -19,7 +19,7 @@ const fs   = require('fs');
 
 // ── Config ────────────────────────────────────────────────────────────────────
 const GROUP_ID        = process.env.GROUP_ID;
-const SPREADSHEET_ID  = process.env.SPREADSHEET_ID;
+const SPREADSHEET_ID  = (process.env.SPREADSHEET_ID || '').trim();
 const AUTH_PATH       = path.join(__dirname, '.baileys_auth');
 
 // ── Message templates (5, used rotationally) ──────────────────────────────────
