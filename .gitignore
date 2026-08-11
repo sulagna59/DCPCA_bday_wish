@@ -1,3 +1,7 @@
 node_modules/
 .baileys_auth/
 *.log
+*.docx
+.DS_Store
+.wwebjs_auth/
+.wwebjs_cache/
