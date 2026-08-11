@@ -29,7 +29,8 @@ jobs:
 
       - name: Send birthday wishes
         env:
-          SHEET_URL: ${{ secrets.SHEET_URL }}
+          SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           GROUP_ID: ${{ secrets.GROUP_ID }}
         run: node bday_wish.js
 

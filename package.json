@@ -11,6 +11,7 @@
   "description": "",
   "dependencies": {
     "@whiskeysockets/baileys": "^7.0.0-rc14",
+    "googleapis": "^174.0.1",
     "libsodium-wrappers": "^0.8.4",
     "pino": "^10.3.1",
     "xlsx": "^0.18.5"

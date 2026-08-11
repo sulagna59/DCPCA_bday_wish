@@ -12,15 +12,15 @@
  */
 
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, Browsers, MessageType } = require('@whiskeysockets/baileys');
+const { google } = require('googleapis');
 const pino = require('pino');
-const XLSX = require('xlsx');
 const path = require('path');
 const fs   = require('fs');
 
 // ── Config ────────────────────────────────────────────────────────────────────
-const GROUP_ID   = process.env.GROUP_ID;
-const SHEET_URL  = process.env.SHEET_URL;
-const AUTH_PATH  = path.join(__dirname, '.baileys_auth');
+const GROUP_ID        = process.env.GROUP_ID;
+const SPREADSHEET_ID  = process.env.SPREADSHEET_ID;
+const AUTH_PATH       = path.join(__dirname, '.baileys_auth');
 
 // ── Message templates (5, used rotationally) ──────────────────────────────────
 const TEMPLATES = [
@@ -97,12 +97,21 @@ const MONTHS = { jan:0, feb:1, mar:2, apr:3, may:4, jun:5,
                   jul:6, aug:7, sep:8, oct:9, nov:10, dec:11 };
 
 async function todaysBirthdays() {
-    const response = await fetch(SHEET_URL);
-    if (!response.ok) throw new Error(`Failed to fetch sheet: ${response.status}`);
-    const csv  = await response.text();
-    const wb   = XLSX.read(csv, { type: 'string' });
-    const ws   = wb.Sheets[wb.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(ws, { raw: false });
+    const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
+    const auth = new google.auth.GoogleAuth({
+        credentials,
+        scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+    });
+    const sheets = google.sheets({ version: 'v4', auth });
+    const res = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: 'Sheet1',
+    });
+
+    const [headers, ...dataRows] = res.data.values || [];
+    const rows = dataRows.map(row =>
+        Object.fromEntries(headers.map((h, i) => [h.trim(), (row[i] || '').trim()]))
+    );
 
     const today = toIST(new Date());
     return rows.filter(row => {
